@@ -1,0 +1,20 @@
+{
+  "locale": "en-US",
+  "version": "1.0",
+  "namespace": "dynamis.demo",
+  "keys": {
+    "demo.title": "DynamisLocalization Demo",
+    "demo.greeting": "Hello, {name}! Welcome to {place}.",
+    "demo.balance": "Your balance is {amount, currency}.",
+    "demo.score": "Score: {score, number}",
+    "demo.items": {
+      "one": "You have {count} item in your inventory.",
+      "other": "You have {count} items in your inventory."
+    },
+    "demo.enemies": {
+      "one": "{count} enemy remains.",
+      "other": "{count} enemies remain."
+    },
+    "demo.locale.label": "Current locale: English (United States)"
+  }
+}

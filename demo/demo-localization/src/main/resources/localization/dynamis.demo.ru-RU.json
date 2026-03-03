@@ -1,0 +1,24 @@
+{
+  "locale": "ru-RU",
+  "version": "1.0",
+  "namespace": "dynamis.demo",
+  "keys": {
+    "demo.title": "Демо DynamisLocalization",
+    "demo.greeting": "Привет, {name}! Добро пожаловать в {place}.",
+    "demo.balance": "Ваш баланс: {amount, currency}.",
+    "demo.score": "Счёт: {score, number}",
+    "demo.items": {
+      "one": "В вашем инвентаре {count} предмет.",
+      "few": "В вашем инвентаре {count} предмета.",
+      "many": "В вашем инвентаре {count} предметов.",
+      "other": "В вашем инвентаре {count} предмета."
+    },
+    "demo.enemies": {
+      "one": "Остался {count} враг.",
+      "few": "Осталось {count} врага.",
+      "many": "Осталось {count} врагов.",
+      "other": "Осталось {count} врага."
+    },
+    "demo.locale.label": "Текущий язык: Русский (Россия)"
+  }
+}
