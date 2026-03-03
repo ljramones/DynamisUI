@@ -4,15 +4,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>org.dynamisui.demo</groupId>
     <artifactId>dynamisui-demo</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
+
   <artifactId>demo-ui</artifactId>
   <name>Demo — DynamisUI JavaFX Renderer Bridge</name>
 
+  <properties>
+    <javafx.version>23.0.1</javafx.version>
+    <!-- Will be set by OS/arch profiles below -->
+    <javafx.platform>UNKNOWN</javafx.platform>
+  </properties>
+
   <dependencies>
+    <!-- Dynamis ecosystem -->
     <dependency>
       <groupId>org.dynamis</groupId>
       <artifactId>dynamis-core</artifactId>
@@ -21,6 +30,7 @@
       <groupId>org.dynamis</groupId>
       <artifactId>dynamis-event</artifactId>
     </dependency>
+
     <dependency>
       <groupId>org.dynamislocalization</groupId>
       <artifactId>localization-api</artifactId>
@@ -29,6 +39,8 @@
       <groupId>org.dynamislocalization</groupId>
       <artifactId>localization-runtime</artifactId>
     </dependency>
+
+    <!-- DynamisUI -->
     <dependency>
       <groupId>org.dynamisui</groupId>
       <artifactId>ui-api</artifactId>
@@ -49,13 +61,19 @@
       <groupId>org.dynamisui</groupId>
       <artifactId>ui-runtime</artifactId>
     </dependency>
+
+    <!-- JavaFX with explicit OpenJFX classifier mapping -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
     </dependency>
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-graphics</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
     </dependency>
   </dependencies>
 
@@ -64,11 +82,73 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
+        <version>3.3.0</version>
         <configuration>
           <mainClass>org.dynamisui.demo.ui.UiDemoApp</mainClass>
           <addResourcesToClasspath>true</addResourcesToClasspath>
+          <jvmArgs>
+            <jvmArg>-Djavafx.cachedir=${project.build.directory}/openjfx-cache</jvmArg>
+            <jvmArg>-Dprism.order=es2,sw</jvmArg>
+          </jvmArgs>
         </configuration>
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- macOS Apple Silicon -->
+    <profile>
+      <id>javafx-mac-aarch64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <properties>
+        <javafx.platform>mac-aarch64</javafx.platform>
+      </properties>
+    </profile>
+
+    <!-- macOS Intel -->
+    <profile>
+      <id>javafx-mac-x64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>x86_64</arch>
+        </os>
+      </activation>
+      <properties>
+        <javafx.platform>mac-x64</javafx.platform>
+      </properties>
+    </profile>
+
+    <!-- Windows -->
+    <profile>
+      <id>javafx-win</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <properties>
+        <javafx.platform>win</javafx.platform>
+      </properties>
+    </profile>
+
+    <!-- Linux -->
+    <profile>
+      <id>javafx-linux</id>
+      <activation>
+        <os>
+          <name>linux</name>
+        </os>
+      </activation>
+      <properties>
+        <javafx.platform>linux</javafx.platform>
+      </properties>
+    </profile>
+  </profiles>
+
 </project>
