@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.dynamisui</groupId>
+  <artifactId>dynamisui</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+
+  <name>DynamisUI</name>
+  <description>
+    Renderer-agnostic retained-mode UI framework with immediate-mode debug overlays
+    for the Dynamis ecosystem. Owns HUD, dialogue, inventory, menus, and dev overlays.
+  </description>
+
+  <modules>
+    <module>ui-api</module>
+    <module>ui-core</module>
+    <module>ui-widgets</module>
+    <module>ui-debug</module>
+    <module>ui-runtime</module>
+  </modules>
+
+  <properties>
+    <maven.compiler.release>25</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <dynamis.core.version>1.0.0</dynamis.core.version>
+    <dynamis.event.version>1.0.0-SNAPSHOT</dynamis.event.version>
+    <dynamislocalization.version>1.0.0-SNAPSHOT</dynamislocalization.version>
+    <dynamisai.version>1.0.0-SNAPSHOT</dynamisai.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- Dynamis ecosystem -->
+      <dependency>
+        <groupId>org.dynamis</groupId>
+        <artifactId>dynamis-core</artifactId>
+        <version>${dynamis.core.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamis</groupId>
+        <artifactId>dynamis-event</artifactId>
+        <version>${dynamis.event.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamislocalization</groupId>
+        <artifactId>localization-api</artifactId>
+        <version>${dynamislocalization.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamislocalization</groupId>
+        <artifactId>localization-runtime</artifactId>
+        <version>${dynamislocalization.version}</version>
+      </dependency>
+      <!-- Internal modules -->
+      <dependency>
+        <groupId>org.dynamisui</groupId>
+        <artifactId>ui-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamisui</groupId>
+        <artifactId>ui-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamisui</groupId>
+        <artifactId>ui-widgets</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamisui</groupId>
+        <artifactId>ui-debug</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <!-- Test -->
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>5.11.4</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.0</version>
+          <configuration>
+            <release>25</release>
+            <compilerArgs>
+              <arg>--enable-preview</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.2</version>
+          <configuration>
+            <argLine>--enable-preview</argLine>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-checkstyle-plugin</artifactId>
+          <version>3.6.0</version>
+        </plugin>
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>4.9.8.2</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>
