@@ -1,7 +1,7 @@
-module org.dynamisui.core {
-    requires dynamis.core;
-    requires org.dynamisui.api;
+module org.dynamisengine.ui.core {
+    requires org.dynamisengine.core;
+    requires org.dynamisengine.ui.api;
 
-    exports org.dynamisui.core;
-    exports org.dynamisui.core.layout;
+    exports org.dynamisengine.ui.core;
+    exports org.dynamisengine.ui.core.layout;
 }

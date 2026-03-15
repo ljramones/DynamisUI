@@ -1,12 +1,12 @@
-module org.dynamisui.runtime {
-    requires dynamis.core;
+module org.dynamisengine.ui.runtime {
+    requires org.dynamisengine.core;
     requires dynamis.event;
-    requires org.dynamisui.api;
-    requires org.dynamisui.core;
-    requires org.dynamisui.widgets;
-    requires org.dynamisui.debug;
-    requires org.dynamislocalization.api;
-    requires org.dynamislocalization.runtime;
+    requires org.dynamisengine.ui.api;
+    requires org.dynamisengine.ui.core;
+    requires org.dynamisengine.ui.widgets;
+    requires org.dynamisengine.ui.debug;
+    requires org.dynamisengine.localization.api;
+    requires org.dynamisengine.localization.runtime;
 
-    exports org.dynamisui.runtime;
+    exports org.dynamisengine.ui.runtime;
 }

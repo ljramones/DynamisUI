@@ -5,7 +5,7 @@
              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.dynamisui</groupId>
+    <groupId>org.dynamisengine.ui</groupId>
     <artifactId>dynamisui</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
@@ -14,35 +14,35 @@
   <description>Assembly, game-loop integration, and ecosystem wiring.</description>
   <dependencies>
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine</groupId>
       <artifactId>dynamis-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine.event</groupId>
       <artifactId>dynamis-event</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-widgets</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-debug</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-runtime</artifactId>
     </dependency>
     <dependency>

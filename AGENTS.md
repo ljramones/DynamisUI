@@ -20,8 +20,8 @@ ui-api → ui-core → ui-widgets / ui-debug → ui-runtime
 ```
 
 ## Conventions (must match DynamisCore baseline)
-- groupId: `org.dynamisui`
-- Package root: `org.dynamisui.*`
+- groupId: `org.dynamisengine.ui`
+- Package root: `org.dynamisengine.ui.*`
 - Logging: `DynamisLogger` only — never SLF4J
 - Exceptions: root in `DynamisException`
 - `module-info.java` required in every module

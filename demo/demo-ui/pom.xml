@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.dynamisui.demo</groupId>
+    <groupId>org.dynamisengine.ui.demo</groupId>
     <artifactId>dynamisui-demo</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
@@ -23,42 +23,42 @@
   <dependencies>
     <!-- Dynamis ecosystem -->
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine</groupId>
       <artifactId>dynamis-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine.event</groupId>
       <artifactId>dynamis-event</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-runtime</artifactId>
     </dependency>
 
     <!-- DynamisUI -->
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-widgets</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-debug</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-runtime</artifactId>
     </dependency>
 
@@ -84,7 +84,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.3.0</version>
         <configuration>
-          <mainClass>org.dynamisui.demo.ui.UiDemoApp</mainClass>
+          <mainClass>org.dynamisengine.ui.demo.ui.UiDemoApp</mainClass>
           <addResourcesToClasspath>true</addResourcesToClasspath>
           <jvmArgs>
             <jvmArg>-Djavafx.cachedir=${project.build.directory}/openjfx-cache</jvmArg>

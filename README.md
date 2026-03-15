@@ -266,8 +266,8 @@ mvn test
 
 # Conventions
 
-* groupId: `org.dynamisui`
-* Package root: `org.dynamisui.*`
+* groupId: `org.dynamisengine.ui`
+* Package root: `org.dynamisengine.ui.*`
 * Logging: `DynamisLogger` only
 * Exceptions: `DynamisException`
 * Java 25 (preview enabled)

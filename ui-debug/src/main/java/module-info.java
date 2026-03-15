@@ -1,7 +1,7 @@
-module org.dynamisui.debug {
-    requires dynamis.core;
-    requires org.dynamisui.api;
-    requires org.dynamisui.core;
+module org.dynamisengine.ui.debug {
+    requires org.dynamisengine.core;
+    requires org.dynamisengine.ui.api;
+    requires org.dynamisengine.ui.core;
 
-    exports org.dynamisui.debug;
+    exports org.dynamisengine.ui.debug;
 }

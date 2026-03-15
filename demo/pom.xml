@@ -5,7 +5,7 @@
              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.dynamisui.demo</groupId>
+  <groupId>org.dynamisengine.ui.demo</groupId>
   <artifactId>dynamisui-demo</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
@@ -30,57 +30,57 @@
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>org.dynamis</groupId>
+        <groupId>org.dynamisengine</groupId>
         <artifactId>dynamis-core</artifactId>
         <version>1.0.0</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamis</groupId>
-        <artifactId>dynamis-event</artifactId>
+        <groupId>org.dynamisengine.event</groupId>
+      <artifactId>dynamis-event</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamislocalization</groupId>
+        <groupId>org.dynamisengine.localization</groupId>
         <artifactId>localization-api</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamislocalization</groupId>
+        <groupId>org.dynamisengine.localization</groupId>
         <artifactId>localization-core</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamislocalization</groupId>
+        <groupId>org.dynamisengine.localization</groupId>
         <artifactId>localization-format</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamislocalization</groupId>
+        <groupId>org.dynamisengine.localization</groupId>
         <artifactId>localization-runtime</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamisui</groupId>
+        <groupId>org.dynamisengine.ui</groupId>
         <artifactId>ui-api</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamisui</groupId>
+        <groupId>org.dynamisengine.ui</groupId>
         <artifactId>ui-core</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamisui</groupId>
+        <groupId>org.dynamisengine.ui</groupId>
         <artifactId>ui-widgets</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamisui</groupId>
+        <groupId>org.dynamisengine.ui</groupId>
         <artifactId>ui-debug</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>
       <dependency>
-        <groupId>org.dynamisui</groupId>
+        <groupId>org.dynamisengine.ui</groupId>
         <artifactId>ui-runtime</artifactId>
         <version>1.0.0-SNAPSHOT</version>
       </dependency>

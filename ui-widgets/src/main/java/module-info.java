@@ -1,13 +1,13 @@
-module org.dynamisui.widgets {
-    requires dynamis.core;
+module org.dynamisengine.ui.widgets {
+    requires org.dynamisengine.core;
     requires dynamis.event;
-    requires org.dynamisui.api;
-    requires org.dynamisui.core;
-    requires org.dynamislocalization.api;
+    requires org.dynamisengine.ui.api;
+    requires org.dynamisengine.ui.core;
+    requires org.dynamisengine.localization.api;
 
-    exports org.dynamisui.widgets;
-    exports org.dynamisui.widgets.hud;
-    exports org.dynamisui.widgets.dialogue;
-    exports org.dynamisui.widgets.inventory;
-    exports org.dynamisui.widgets.menu;
+    exports org.dynamisengine.ui.widgets;
+    exports org.dynamisengine.ui.widgets.hud;
+    exports org.dynamisengine.ui.widgets.dialogue;
+    exports org.dynamisengine.ui.widgets.inventory;
+    exports org.dynamisengine.ui.widgets.menu;
 }

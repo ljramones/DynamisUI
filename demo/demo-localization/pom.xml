@@ -5,7 +5,7 @@
              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.dynamisui.demo</groupId>
+    <groupId>org.dynamisengine.ui.demo</groupId>
     <artifactId>dynamisui-demo</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
@@ -14,23 +14,23 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine</groupId>
       <artifactId>dynamis-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-format</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamislocalization</groupId>
+      <groupId>org.dynamisengine.localization</groupId>
       <artifactId>localization-runtime</artifactId>
     </dependency>
   </dependencies>
@@ -41,7 +41,7 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <configuration>
-          <mainClass>org.dynamisui.demo.localization.LocalizationDemo</mainClass>
+          <mainClass>org.dynamisengine.ui.demo.localization.LocalizationDemo</mainClass>
           <addResourcesToClasspath>true</addResourcesToClasspath>
         </configuration>
       </plugin>

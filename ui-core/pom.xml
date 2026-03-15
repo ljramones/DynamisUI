@@ -5,7 +5,7 @@
              http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>org.dynamisui</groupId>
+    <groupId>org.dynamisengine.ui</groupId>
     <artifactId>dynamisui</artifactId>
     <version>1.0.0-SNAPSHOT</version>
   </parent>
@@ -14,11 +14,11 @@
   <description>Scene graph, layout engine, event routing, and animation.</description>
   <dependencies>
     <dependency>
-      <groupId>org.dynamis</groupId>
+      <groupId>org.dynamisengine</groupId>
       <artifactId>dynamis-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.dynamisui</groupId>
+      <groupId>org.dynamisengine.ui</groupId>
       <artifactId>ui-api</artifactId>
     </dependency>
     <dependency>
