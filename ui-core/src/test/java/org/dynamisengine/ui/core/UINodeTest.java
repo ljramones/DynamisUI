@@ -118,4 +118,84 @@ class UINodeTest {
     void blankIdThrowsDynamisException() {
         assertThrows(DynamisException.class, () -> new UINode("   ", Bounds.of(0f, 0f, 1f, 1f)));
     }
+
+    @Test
+    void invisibleNodeDoesNotDispatchEvents() {
+        UINode parent = new UINode("parent", Bounds.of(0f, 0f, 100f, 100f));
+        UINode child = new UINode("child", Bounds.of(0f, 0f, 10f, 10f));
+        List<String> order = new ArrayList<>();
+
+        child.addListener(event -> {
+            order.add("child");
+            return false;
+        });
+        parent.addChild(child);
+        child.setVisible(false);
+
+        parent.dispatchEvent(new FocusEvent(1L, FocusEvent.FocusAction.GAINED));
+
+        assertTrue(order.isEmpty(), "Invisible child should not receive events");
+    }
+
+    @Test
+    void invisibleParentDoesNotDispatchToChildren() {
+        UINode parent = new UINode("parent", Bounds.of(0f, 0f, 100f, 100f));
+        UINode child = new UINode("child", Bounds.of(0f, 0f, 10f, 10f));
+        List<String> order = new ArrayList<>();
+
+        child.addListener(event -> {
+            order.add("child");
+            return false;
+        });
+        parent.addChild(child);
+        parent.setVisible(false);
+
+        boolean consumed = parent.dispatchEvent(new FocusEvent(1L, FocusEvent.FocusAction.GAINED));
+
+        assertFalse(consumed);
+        assertTrue(order.isEmpty());
+    }
+
+    @Test
+    void multipleListenersCalledInRegistrationOrder() {
+        UINode node = new UINode("node", Bounds.of(0f, 0f, 10f, 10f));
+        List<String> order = new ArrayList<>();
+
+        node.addListener(event -> {
+            order.add("first");
+            return false;
+        });
+        node.addListener(event -> {
+            order.add("second");
+            return false;
+        });
+        node.addListener(event -> {
+            order.add("third");
+            return false;
+        });
+
+        node.dispatchEvent(new FocusEvent(1L, FocusEvent.FocusAction.GAINED));
+
+        assertEquals(List.of("first", "second", "third"), order);
+    }
+
+    @Test
+    void consumedEventStopsLaterListenersOnSameNode() {
+        UINode node = new UINode("node", Bounds.of(0f, 0f, 10f, 10f));
+        List<String> order = new ArrayList<>();
+
+        node.addListener(event -> {
+            order.add("first");
+            return true; // consume
+        });
+        node.addListener(event -> {
+            order.add("second");
+            return false;
+        });
+
+        boolean consumed = node.dispatchEvent(new FocusEvent(1L, FocusEvent.FocusAction.GAINED));
+
+        assertTrue(consumed);
+        assertEquals(List.of("first"), order);
+    }
 }
