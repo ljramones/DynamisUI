@@ -77,6 +77,17 @@
         <artifactId>ui-debug</artifactId>
         <version>${project.version}</version>
       </dependency>
+      <!-- DynamisDebug (Layer 1 — diagnostic truth) -->
+      <dependency>
+        <groupId>org.dynamisengine.debug</groupId>
+        <artifactId>dynamisdebug-api</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+      </dependency>
+      <dependency>
+        <groupId>org.dynamisengine.debug</groupId>
+        <artifactId>dynamisdebug-core</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+      </dependency>
       <!-- Test -->
       <dependency>
         <groupId>org.junit.jupiter</groupId>

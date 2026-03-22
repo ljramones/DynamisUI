@@ -2,6 +2,8 @@ module org.dynamisengine.ui.debug {
     requires org.dynamisengine.core;
     requires org.dynamisengine.ui.api;
     requires org.dynamisengine.ui.core;
+    requires org.dynamisengine.debug.api;
+    requires org.dynamisengine.debug.core;
 
     exports org.dynamisengine.ui.debug;
     exports org.dynamisengine.ui.debug.model;
