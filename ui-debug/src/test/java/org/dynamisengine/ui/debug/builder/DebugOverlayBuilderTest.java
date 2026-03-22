@@ -213,6 +213,75 @@ class DebugOverlayBuilderTest {
     }
 
     @Test
+    void alertsGroupedByRuleName() {
+        var alerts = List.of(
+            new DebugViewSnapshot.DebugAlertView("engine.budgetHigh", "WARNING", "110%", "", ""),
+            new DebugViewSnapshot.DebugAlertView("engine.budgetHigh", "WARNING", "120%", "", ""),
+            new DebugViewSnapshot.DebugAlertView("engine.budgetHigh", "WARNING", "130%", "", ""),
+            new DebugViewSnapshot.DebugAlertView("ai.budgetExceeded", "ERROR", "115%", "", "")
+        );
+        var snapshot = new DebugViewSnapshot(Map.of(), alerts,
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100);
+
+        var builder = new DebugOverlayBuilder();
+        var panels = builder.buildAll(snapshot);
+        var alertPanel = panels.stream()
+            .filter(p -> "Alerts".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        // Should have: summary row + 2 grouped alert rows (not 4 individual rows)
+        // Summary: "C:0  E:1  W:3"
+        // [E] ai.budgetExceeded (sorted first by severity)
+        // [W] engine.budgetHigh x3
+        assertTrue(alertPanel.rows().stream().anyMatch(r -> r.value().contains("E:1")));
+        assertTrue(alertPanel.rows().stream().anyMatch(r -> r.label().contains("x3")));
+    }
+
+    @Test
+    void alertsSortedBySeverityThenCount() {
+        var alerts = List.of(
+            new DebugViewSnapshot.DebugAlertView("warn1", "WARNING", "w1", "", ""),
+            new DebugViewSnapshot.DebugAlertView("warn1", "WARNING", "w2", "", ""),
+            new DebugViewSnapshot.DebugAlertView("error1", "ERROR", "e1", "", "")
+        );
+        var snapshot = new DebugViewSnapshot(Map.of(), alerts,
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100);
+
+        var builder = new DebugOverlayBuilder();
+        var panels = builder.buildAll(snapshot);
+        var alertPanel = panels.stream()
+            .filter(p -> "Alerts".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        // First row after summary should be error (higher severity), not warning
+        var alertRows = alertPanel.rows().stream()
+            .filter(r -> r.label().startsWith("[")).toList();
+        assertTrue(alertRows.getFirst().label().startsWith("[E]"));
+    }
+
+    @Test
+    void alertsCappedWithMoreIndicator() {
+        var alerts = new java.util.ArrayList<DebugViewSnapshot.DebugAlertView>();
+        for (int i = 0; i < 20; i++) {
+            alerts.add(new DebugViewSnapshot.DebugAlertView(
+                "rule" + i, "WARNING", "msg" + i, "", ""));
+        }
+        // maxRowsPerPanel = 4 means 3 alert rows + summary
+        var options = new DebugOverlayOptions(false, true, true, 60, 16, 4, false);
+        var builder = new DebugOverlayBuilder(options);
+        var snapshot = new DebugViewSnapshot(Map.of(), alerts,
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100);
+
+        var panels = builder.buildAll(snapshot);
+        var alertPanel = panels.stream()
+            .filter(p -> "Alerts".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        // Should show "+N more" row
+        assertTrue(alertPanel.rows().stream().anyMatch(r -> r.value().contains("more")));
+    }
+
+    @Test
     void categoryPanelIncludesTrends() {
         var trend = new org.dynamisengine.ui.debug.model.DebugMiniTrend(
             "worldengine.frameTimeMs", 10.0, 20.0, List.of(10.0, 12.0, 15.0, 18.0, 20.0));

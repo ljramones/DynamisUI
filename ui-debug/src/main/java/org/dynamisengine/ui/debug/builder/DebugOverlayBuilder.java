@@ -115,30 +115,99 @@ public final class DebugOverlayBuilder {
             .region(PanelRegion.TOP)
             .order(order);
 
-        PanelSeverity maxSeverity = PanelSeverity.NORMAL;
-        int rowCount = 0;
-
-        for (var alert : snapshot.alerts()) {
-            if (rowCount >= options.maxRowsPerPanel()) break;
-
-            RowSeverity rowSev = "ERROR".equals(alert.severity()) ? RowSeverity.ERROR : RowSeverity.WARNING;
-            String prefix = "ERROR".equals(alert.severity()) ? "[E]" : "[W]";
-            builder.row(prefix + " " + alert.ruleName(), alert.message(), rowSev);
-
-            if (rowSev == RowSeverity.ERROR) maxSeverity = PanelSeverity.ERROR;
-            else if (rowSev == RowSeverity.WARNING && maxSeverity != PanelSeverity.ERROR) maxSeverity = PanelSeverity.WARNING;
-
-            rowCount++;
-        }
-
         if (snapshot.alerts().isEmpty()) {
             builder.row("status", "No active alerts");
+            return builder.build();
+        }
+
+        // Group alerts by ruleName
+        var grouped = new java.util.LinkedHashMap<String, AlertGroup>();
+        for (var alert : snapshot.alerts()) {
+            grouped.computeIfAbsent(alert.ruleName(), k -> new AlertGroup(alert))
+                   .add(alert);
+        }
+
+        // Sort: CRITICAL/ERROR first, then WARNING, then by count descending
+        var sorted = new java.util.ArrayList<>(grouped.values());
+        sorted.sort((a, b) -> {
+            int sevCmp = severityRank(b.severity) - severityRank(a.severity);
+            if (sevCmp != 0) return sevCmp;
+            return Integer.compare(b.count, a.count);
+        });
+
+        // Summary counts
+        int criticalCount = 0, errorCount = 0, warningCount = 0;
+        for (var g : sorted) {
+            switch (g.severity) {
+                case "CRITICAL" -> criticalCount += g.count;
+                case "ERROR" -> errorCount += g.count;
+                default -> warningCount += g.count;
+            }
+        }
+        RowSeverity summaryRowSev = criticalCount > 0 || errorCount > 0 ? RowSeverity.ERROR
+            : warningCount > 0 ? RowSeverity.WARNING : RowSeverity.NORMAL;
+        builder.row("summary",
+            String.format("C:%d  E:%d  W:%d", criticalCount, errorCount, warningCount),
+            summaryRowSev);
+
+        // Render grouped rows up to max
+        int maxAlertRows = Math.max(1, options.maxRowsPerPanel() - 1); // -1 for summary
+        int shown = 0;
+        PanelSeverity maxSeverity = PanelSeverity.NORMAL;
+
+        for (var group : sorted) {
+            if (shown >= maxAlertRows) break;
+
+            RowSeverity rowSev = "ERROR".equals(group.severity) || "CRITICAL".equals(group.severity)
+                ? RowSeverity.ERROR : RowSeverity.WARNING;
+            String prefix = rowSev == RowSeverity.ERROR ? "[E]" : "[W]";
+            String countSuffix = group.count > 1 ? " x" + group.count : "";
+            builder.row(prefix + " " + group.ruleName + countSuffix, group.latestMessage, rowSev);
+
+            if (rowSev == RowSeverity.ERROR) maxSeverity = PanelSeverity.ERROR;
+            else if (rowSev == RowSeverity.WARNING && maxSeverity != PanelSeverity.ERROR)
+                maxSeverity = PanelSeverity.WARNING;
+            shown++;
+        }
+
+        int hidden = sorted.size() - shown;
+        if (hidden > 0) {
+            builder.row("", "+" + hidden + " more alert types");
         }
 
         builder.severity(maxSeverity);
-        builder.highlighted(!snapshot.alerts().isEmpty());
+        builder.highlighted(true);
 
         return builder.build();
+    }
+
+    private static int severityRank(String severity) {
+        return switch (severity) {
+            case "CRITICAL" -> 3;
+            case "ERROR" -> 2;
+            case "WARNING" -> 1;
+            default -> 0;
+        };
+    }
+
+    /** Groups repeated alerts by rule name. */
+    private static final class AlertGroup {
+        final String ruleName;
+        final String severity;
+        String latestMessage;
+        int count;
+
+        AlertGroup(DebugViewSnapshot.DebugAlertView first) {
+            this.ruleName = first.ruleName();
+            this.severity = first.severity();
+            this.latestMessage = first.message();
+            this.count = 0;
+        }
+
+        void add(DebugViewSnapshot.DebugAlertView alert) {
+            count++;
+            latestMessage = alert.message(); // latest wins
+        }
     }
 
     private DebugOverlayPanel buildCategoryPanel(DebugViewSnapshot snapshot,
