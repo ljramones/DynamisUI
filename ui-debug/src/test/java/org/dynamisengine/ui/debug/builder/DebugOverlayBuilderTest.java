@@ -177,4 +177,60 @@ class DebugOverlayBuilderTest {
         assertEquals("Engine Summary", summaryPanel.title());
         assertTrue(summaryPanel.rows().size() >= 4);
     }
+
+    @Test
+    void timelinePanelShowsEventsWhenPresent() {
+        var event = new DebugViewSnapshot.DebugTimelineEvent(
+            100, 1000, "WARNING", "physics", "physics.stepHigh", "6.2ms > 5.0ms");
+        var options = new DebugOverlayOptions(true, true, true, 60, 16, 8, false);
+        var builder = new DebugOverlayBuilder(options);
+        var snapshot = new DebugViewSnapshot(Map.of(), List.of(),
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100, List.of(event));
+
+        var panels = builder.buildAll(snapshot);
+        var timeline = panels.stream()
+            .filter(p -> "Timeline".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        // Should have event row(s) + total count row
+        assertTrue(timeline.rows().size() >= 2);
+        assertTrue(timeline.rows().stream().anyMatch(r -> r.value().contains("6.2ms")));
+    }
+
+    @Test
+    void timelinePanelEmptyWhenNoEvents() {
+        var options = new DebugOverlayOptions(true, true, true, 60, 16, 8, false);
+        var builder = new DebugOverlayBuilder(options);
+        var snapshot = new DebugViewSnapshot(Map.of(), List.of(),
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100, List.of());
+
+        var panels = builder.buildAll(snapshot);
+        var timeline = panels.stream()
+            .filter(p -> "Timeline".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        assertTrue(timeline.rows().stream().anyMatch(r -> r.value().contains("no recent events")));
+    }
+
+    @Test
+    void categoryPanelIncludesTrends() {
+        var trend = new org.dynamisengine.ui.debug.model.DebugMiniTrend(
+            "worldengine.frameTimeMs", 10.0, 20.0, List.of(10.0, 12.0, 15.0, 18.0, 20.0));
+        var category = new DebugViewSnapshot.DebugCategoryView("Engine",
+            Map.of("worldengine", Map.of("frameTimeMs", "15.0")),
+            Map.of(), List.of(trend));
+        var snapshot = new DebugViewSnapshot(
+            Map.of("engine", category), List.of(),
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100);
+
+        var builder = new DebugOverlayBuilder();
+        var panels = builder.buildAll(snapshot);
+
+        var enginePanel = panels.stream()
+            .filter(p -> "Engine".equals(p.title()))
+            .findFirst().orElseThrow();
+
+        assertEquals(1, enginePanel.trends().size());
+        assertEquals("worldengine.frameTimeMs", enginePanel.trends().getFirst().metricName());
+    }
 }

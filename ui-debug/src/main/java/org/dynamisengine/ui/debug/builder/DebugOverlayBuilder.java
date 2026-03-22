@@ -172,6 +172,11 @@ public final class DebugOverlayBuilder {
                     builder.flag(flag.getKey(), state);
                 }
             }
+
+            // Add trends from real history data
+            for (var trend : category.trends()) {
+                builder.trend(trend);
+            }
         } else {
             builder.row("status", "no data");
         }
@@ -180,11 +185,36 @@ public final class DebugOverlayBuilder {
     }
 
     private DebugOverlayPanel buildTimelinePanel(DebugViewSnapshot snapshot, int order) {
-        return DebugOverlayPanel.builder(ID_TIMELINE, "Timeline")
+        var builder = DebugOverlayPanel.builder(ID_TIMELINE, "Timeline")
             .region(PanelRegion.BOTTOM)
-            .order(order)
-            .row("status", "timeline data pending")
-            .build();
+            .order(order);
+
+        var events = snapshot.timelineEvents();
+        if (events.isEmpty()) {
+            builder.row("status", "no recent events");
+        } else {
+            PanelSeverity maxSev = PanelSeverity.NORMAL;
+            int shown = 0;
+            // Show most recent events first (list is chronological, reverse for display)
+            for (int i = events.size() - 1; i >= 0 && shown < options.maxRowsPerPanel(); i--) {
+                var event = events.get(i);
+                RowSeverity rowSev = switch (event.severity()) {
+                    case "ERROR", "CRITICAL" -> RowSeverity.ERROR;
+                    case "WARNING" -> RowSeverity.WARNING;
+                    default -> RowSeverity.NORMAL;
+                };
+                String label = "T" + event.frameNumber() + " " + event.source();
+                builder.row(label, event.message(), rowSev);
+
+                if (rowSev == RowSeverity.ERROR && maxSev != PanelSeverity.ERROR) maxSev = PanelSeverity.ERROR;
+                else if (rowSev == RowSeverity.WARNING && maxSev == PanelSeverity.NORMAL) maxSev = PanelSeverity.WARNING;
+                shown++;
+            }
+            builder.severity(maxSev);
+            builder.row("total", events.size() + " events in window");
+        }
+
+        return builder.build();
     }
 
     private static FlagState parseFlagState(String value) {

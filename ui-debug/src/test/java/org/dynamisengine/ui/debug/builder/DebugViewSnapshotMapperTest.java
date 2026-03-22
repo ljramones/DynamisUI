@@ -199,4 +199,123 @@ class DebugViewSnapshotMapperTest {
         assertTrue(viewSnap.categories().containsKey("audio"));
         assertEquals("8", viewSnap.categories().get("audio").sources().get("audio").get("voices"));
     }
+
+    // --- Trend tests ---
+
+    @Test
+    void trendsExtractedFromHistory() {
+        // Record 5 frames with worldengine frameTimeMs
+        for (int i = 1; i <= 5; i++) {
+            session.history().record(i, Map.of("worldengine", new DebugSnapshot(
+                i, i * 100L, "worldengine", DebugCategory.ENGINE,
+                Map.of("frameTimeMs", 10.0 + i, "budgetPercent", 60.0 + i * 5),
+                Map.of(), ""
+            )));
+        }
+
+        var viewSnap = mapper.map(6);
+        var engineCat = viewSnap.categories().get("engine");
+        assertNotNull(engineCat);
+        assertFalse(engineCat.trends().isEmpty(), "Should have trends from history");
+
+        // Should have frameTimeMs trend
+        var frameTimeTrend = engineCat.trends().stream()
+            .filter(t -> t.metricName().equals("worldengine.frameTimeMs"))
+            .findFirst();
+        assertTrue(frameTimeTrend.isPresent());
+        assertEquals(5, frameTimeTrend.get().values().size());
+        assertEquals(11.0, frameTimeTrend.get().min(), 0.01);
+        assertEquals(15.0, frameTimeTrend.get().max(), 0.01);
+    }
+
+    @Test
+    void noTrendsWithInsufficientHistory() {
+        // Only 1 frame — not enough for trends
+        session.history().record(1, Map.of("worldengine", new DebugSnapshot(
+            1, 100, "worldengine", DebugCategory.ENGINE,
+            Map.of("frameTimeMs", 10.0), Map.of(), ""
+        )));
+
+        var viewSnap = mapper.map(2);
+        var engineCat = viewSnap.categories().get("engine");
+        assertNotNull(engineCat);
+        assertTrue(engineCat.trends().isEmpty(), "Should have no trends with < 2 frames");
+    }
+
+    @Test
+    void trendsOnlyForConfiguredMetrics() {
+        // Record frames with a non-trended metric
+        for (int i = 1; i <= 3; i++) {
+            session.history().record(i, Map.of("ecs", new DebugSnapshot(
+                i, i * 100L, "ecs", DebugCategory.ECS,
+                Map.of("entityCount", 100.0 + i, "unusualMetric", 42.0),
+                Map.of(), ""
+            )));
+        }
+
+        var viewSnap = mapper.map(4);
+        var ecsCat = viewSnap.categories().get("ecs");
+        assertNotNull(ecsCat);
+
+        // entityCount is configured for ecs trends
+        assertTrue(ecsCat.trends().stream().anyMatch(t -> t.metricName().equals("ecs.entityCount")));
+        // unusualMetric is NOT configured
+        assertTrue(ecsCat.trends().stream().noneMatch(t -> t.metricName().contains("unusualMetric")));
+    }
+
+    @Test
+    void trendMinMaxNormalized() {
+        for (int i = 1; i <= 4; i++) {
+            session.history().record(i, Map.of("worldengine", new DebugSnapshot(
+                i, 0, "worldengine", DebugCategory.ENGINE,
+                Map.of("frameTimeMs", i * 5.0), Map.of(), ""
+            )));
+        }
+
+        var viewSnap = mapper.map(5);
+        var trend = viewSnap.categories().get("engine").trends().stream()
+            .filter(t -> t.metricName().equals("worldengine.frameTimeMs"))
+            .findFirst().orElseThrow();
+
+        assertEquals(5.0, trend.min(), 0.01);
+        assertEquals(20.0, trend.max(), 0.01);
+        assertEquals(4, trend.values().size());
+    }
+
+    // --- Timeline tests ---
+
+    @Test
+    void timelineEventsPopulatedFromRecentEvents() {
+        session.submit(new DebugEvent(10, 1000, "physics", DebugCategory.PHYSICS,
+            DebugSeverity.WARNING, "physics.stepHigh", "step time high"));
+        session.submit(new DebugEvent(12, 1200, "ai", DebugCategory.AI,
+            DebugSeverity.ERROR, "ai.budgetExceeded", "budget exceeded"));
+        // INFO should not appear in timeline
+        session.submit(new DebugEvent(13, 1300, "ecs", DebugCategory.ECS,
+            DebugSeverity.INFO, "ecs.created", "entity created"));
+
+        var viewSnap = mapper.map(14);
+
+        assertEquals(2, viewSnap.timelineEvents().size());
+        assertEquals("physics.stepHigh", viewSnap.timelineEvents().get(0).name());
+        assertEquals("WARNING", viewSnap.timelineEvents().get(0).severity());
+        assertEquals("ai.budgetExceeded", viewSnap.timelineEvents().get(1).name());
+        assertEquals("ERROR", viewSnap.timelineEvents().get(1).severity());
+    }
+
+    @Test
+    void emptyTimelineWhenNoEvents() {
+        var viewSnap = mapper.map(1);
+        assertTrue(viewSnap.timelineEvents().isEmpty());
+    }
+
+    @Test
+    void criticalEventsMapToTimeline() {
+        session.submit(new DebugEvent(1, 100, "engine", DebugCategory.ENGINE,
+            DebugSeverity.CRITICAL, "engine.crash", "fatal error"));
+
+        var viewSnap = mapper.map(2);
+        assertEquals(1, viewSnap.timelineEvents().size());
+        assertEquals("CRITICAL", viewSnap.timelineEvents().getFirst().severity());
+    }
 }

@@ -1,5 +1,7 @@
 package org.dynamisengine.ui.debug.builder;
 
+import org.dynamisengine.ui.debug.model.DebugMiniTrend;
+
 import java.util.List;
 import java.util.Map;
 
@@ -18,54 +20,74 @@ import java.util.Map;
  * <p>The debug capture pipeline (in {@code DynamisDebug}) produces this;
  * the overlay builder (in {@code DynamisUI}) consumes it.
  *
- * @param categories per-category snapshots keyed by category name
- * @param alerts     active watchdog alerts
- * @param summary    engine-level summary metrics
- * @param tick       the engine tick this snapshot represents
+ * @param categories     per-category snapshots keyed by category name
+ * @param alerts         active watchdog alerts
+ * @param summary        engine-level summary metrics
+ * @param tick           the engine tick this snapshot represents
+ * @param timelineEvents recent events for timeline strip rendering
  */
 public record DebugViewSnapshot(
     Map<String, DebugCategoryView> categories,
     List<DebugAlertView> alerts,
     DebugSummaryView summary,
-    long tick
+    long tick,
+    List<DebugTimelineEvent> timelineEvents
 ) {
+    /** Backwards-compatible constructor without timeline events. */
+    public DebugViewSnapshot(
+            Map<String, DebugCategoryView> categories,
+            List<DebugAlertView> alerts,
+            DebugSummaryView summary,
+            long tick) {
+        this(categories, alerts, summary, tick, List.of());
+    }
+
     public DebugViewSnapshot {
         if (categories == null) categories = Map.of();
         else categories = Map.copyOf(categories);
         if (alerts == null) alerts = List.of();
         else alerts = List.copyOf(alerts);
         if (summary == null) summary = DebugSummaryView.EMPTY;
+        if (timelineEvents == null) timelineEvents = List.of();
+        else timelineEvents = List.copyOf(timelineEvents);
     }
 
     /** Empty snapshot for initial/absent state. */
-    public static final DebugViewSnapshot EMPTY = new DebugViewSnapshot(Map.of(), List.of(), DebugSummaryView.EMPTY, 0);
+    public static final DebugViewSnapshot EMPTY = new DebugViewSnapshot(Map.of(), List.of(), DebugSummaryView.EMPTY, 0, List.of());
 
     /**
-     * A category-level view containing source snapshots.
+     * A category-level view containing source snapshots and trends.
      *
      * @param categoryName display name (e.g. "PHYSICS", "AI")
      * @param sources      per-source metric maps
+     * @param flags        named flags
+     * @param trends       mini-trend sparklines for key metrics
      */
     public record DebugCategoryView(
         String categoryName,
         Map<String, Map<String, String>> sources,
-        Map<String, String> flags
+        Map<String, String> flags,
+        List<DebugMiniTrend> trends
     ) {
+        /** Backwards-compatible constructor without trends. */
+        public DebugCategoryView(
+                String categoryName,
+                Map<String, Map<String, String>> sources,
+                Map<String, String> flags) {
+            this(categoryName, sources, flags, List.of());
+        }
+
         public DebugCategoryView {
             if (categoryName == null) categoryName = "";
             if (sources == null) sources = Map.of();
             if (flags == null) flags = Map.of();
+            if (trends == null) trends = List.of();
+            else trends = List.copyOf(trends);
         }
     }
 
     /**
      * A watchdog alert view.
-     *
-     * @param ruleName    the watchdog rule that fired
-     * @param severity    "WARNING" or "ERROR"
-     * @param message     human-readable alert message
-     * @param metricValue the metric value that triggered the alert
-     * @param threshold   the threshold that was exceeded
      */
     public record DebugAlertView(
         String ruleName,
@@ -77,13 +99,6 @@ public record DebugViewSnapshot(
 
     /**
      * Engine-level summary metrics.
-     *
-     * @param tick           current engine tick
-     * @param frameTimeMs    frame time in milliseconds
-     * @param budgetPercent  budget usage percentage
-     * @param sourceCount    number of registered telemetry sources
-     * @param historyDepth   number of frames in history
-     * @param healthySources number of healthy sources
      */
     public record DebugSummaryView(
         long tick,
@@ -95,4 +110,23 @@ public record DebugViewSnapshot(
     ) {
         public static final DebugSummaryView EMPTY = new DebugSummaryView(0, 0f, 0f, 0, 0, 0);
     }
+
+    /**
+     * A timeline event for the bottom timeline strip.
+     *
+     * @param frameNumber when the event occurred
+     * @param timestampMs wall-clock time
+     * @param severity    "WARNING", "ERROR", or "CRITICAL"
+     * @param source      originating subsystem
+     * @param name        event type name
+     * @param message     short description
+     */
+    public record DebugTimelineEvent(
+        long frameNumber,
+        long timestampMs,
+        String severity,
+        String source,
+        String name,
+        String message
+    ) {}
 }

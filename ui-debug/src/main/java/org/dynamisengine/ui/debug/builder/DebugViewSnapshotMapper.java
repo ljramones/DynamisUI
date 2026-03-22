@@ -7,6 +7,7 @@ import org.dynamisengine.debug.api.event.DebugEvent;
 import org.dynamisengine.debug.core.DebugHistory;
 import org.dynamisengine.debug.core.DebugSession;
 import org.dynamisengine.debug.core.DebugTimeline;
+import org.dynamisengine.ui.debug.model.DebugMiniTrend;
 
 import java.util.*;
 
@@ -53,43 +54,54 @@ public final class DebugViewSnapshotMapper {
         Map.entry(DebugCategory.CUSTOM, "custom")
     );
 
+    /**
+     * Key metrics to trend per source. Only metrics that actually exist in
+     * history will produce trends — no synthetic data.
+     */
+    private static final Map<String, List<String>> TREND_METRICS = Map.of(
+        "worldengine", List.of("frameTimeMs", "budgetPercent"),
+        "physics", List.of("stepTimeMs", "contacts"),
+        "ecs", List.of("entityCount"),
+        "audio", List.of("dspBudget", "voices"),
+        "gpu", List.of("backlog"),
+        "lightengine", List.of("drawCalls"),
+        "ai", List.of("budgetUsage"),
+        "scripting", List.of("commitRate")
+    );
+
     private final DebugSession session;
+    private int trendFrameCount = 60;
 
     public DebugViewSnapshotMapper(DebugSession session) {
         this.session = Objects.requireNonNull(session, "session required");
     }
 
-    /**
-     * Maps the current debug state into a {@link DebugViewSnapshot}.
-     *
-     * <p>Reads the latest frame from history, recent events for alerts,
-     * session-level flags, and timeline data. Returns a fully populated
-     * snapshot suitable for {@link DebugOverlayBuilder}.
-     *
-     * @param frameNumber the current engine tick
-     * @return a complete view snapshot (never null)
-     */
-    public DebugViewSnapshot map(long frameNumber) {
-        Map<String, DebugSnapshot> frameSnapshots = latestFrameSnapshots();
-
-        return new DebugViewSnapshot(
-            mapCategories(frameSnapshots),
-            mapAlerts(),
-            mapSummary(frameNumber, frameSnapshots),
-            frameNumber
-        );
+    public void setTrendFrameCount(int count) {
+        this.trendFrameCount = Math.max(2, count);
     }
 
     /**
-     * Maps from an explicit frame snapshot map (e.g. the return value of
-     * {@code DebugBridge.captureFrame()}).
+     * Maps the current debug state into a {@link DebugViewSnapshot}.
+     */
+    public DebugViewSnapshot map(long frameNumber) {
+        Map<String, DebugSnapshot> frameSnapshots = latestFrameSnapshots();
+        return buildSnapshot(frameNumber, frameSnapshots);
+    }
+
+    /**
+     * Maps from an explicit frame snapshot map.
      */
     public DebugViewSnapshot mapFromFrame(long frameNumber, Map<String, DebugSnapshot> frameSnapshots) {
+        return buildSnapshot(frameNumber, frameSnapshots);
+    }
+
+    private DebugViewSnapshot buildSnapshot(long frameNumber, Map<String, DebugSnapshot> frameSnapshots) {
         return new DebugViewSnapshot(
             mapCategories(frameSnapshots),
             mapAlerts(),
             mapSummary(frameNumber, frameSnapshots),
-            frameNumber
+            frameNumber,
+            mapTimelineEvents()
         );
     }
 
@@ -122,7 +134,6 @@ public final class DebugViewSnapshotMapper {
     private DebugViewSnapshot.DebugCategoryView buildCategoryView(
             String categoryKey, Map<String, DebugSnapshot> snapshots) {
 
-        // Sources → metrics (Map<String, Map<String, String>>)
         Map<String, Map<String, String>> sources = new LinkedHashMap<>();
         Map<String, String> allFlags = new LinkedHashMap<>();
 
@@ -130,21 +141,56 @@ public final class DebugViewSnapshotMapper {
             String source = entry.getKey();
             DebugSnapshot snap = entry.getValue();
 
-            // Convert numeric metrics to strings
             Map<String, String> metricStrings = new LinkedHashMap<>();
             for (var m : snap.metrics().entrySet()) {
                 metricStrings.put(m.getKey(), formatMetric(m.getValue()));
             }
             sources.put(source, metricStrings);
 
-            // Merge flags from snapshot
             for (var f : snap.flags().entrySet()) {
                 allFlags.put(f.getKey(), f.getValue() ? "ACTIVE" : "OK");
             }
         }
 
+        // Extract trends for sources in this category
+        List<DebugMiniTrend> trends = extractTrendsForCategory(snapshots);
+
         String displayName = categoryKey.substring(0, 1).toUpperCase() + categoryKey.substring(1);
-        return new DebugViewSnapshot.DebugCategoryView(displayName, sources, allFlags);
+        return new DebugViewSnapshot.DebugCategoryView(displayName, sources, allFlags, trends);
+    }
+
+    // --- Trend extraction ---
+
+    private List<DebugMiniTrend> extractTrendsForCategory(Map<String, DebugSnapshot> snapshots) {
+        if (session.history().size() < 2) return List.of();
+
+        DebugTimeline timeline = session.timeline();
+        List<DebugMiniTrend> trends = new ArrayList<>();
+
+        for (var entry : snapshots.entrySet()) {
+            String source = entry.getKey();
+            List<String> metricsToTrend = TREND_METRICS.getOrDefault(source, List.of());
+
+            for (String metricName : metricsToTrend) {
+                var points = timeline.extractMetric(source, metricName, trendFrameCount);
+                if (points.size() < 2) continue;
+
+                var stats = timeline.stats(source, metricName, trendFrameCount);
+                List<Double> values = new ArrayList<>(points.size());
+                for (var p : points) {
+                    values.add(p.value());
+                }
+
+                trends.add(new DebugMiniTrend(
+                    source + "." + metricName,
+                    stats.min(),
+                    stats.max(),
+                    values
+                ));
+            }
+        }
+
+        return trends;
     }
 
     // --- Alert mapping ---
@@ -160,16 +206,43 @@ public final class DebugViewSnapshotMapper {
 
                 String severity = event.severity() == DebugSeverity.WARNING ? "WARNING" : "ERROR";
                 alerts.add(new DebugViewSnapshot.DebugAlertView(
-                    event.name(),
-                    severity,
-                    event.message(),
-                    "", // metric value not always available from events
-                    ""  // threshold not always available from events
+                    event.name(), severity, event.message(), "", ""
                 ));
             }
         }
 
         return alerts;
+    }
+
+    // --- Timeline event mapping ---
+
+    private List<DebugViewSnapshot.DebugTimelineEvent> mapTimelineEvents() {
+        List<DebugEvent> events = session.recentEvents(100);
+        List<DebugViewSnapshot.DebugTimelineEvent> timelineEvents = new ArrayList<>();
+
+        for (var event : events) {
+            if (event.severity() == DebugSeverity.WARNING
+                    || event.severity() == DebugSeverity.ERROR
+                    || event.severity() == DebugSeverity.CRITICAL) {
+
+                String severity = switch (event.severity()) {
+                    case CRITICAL -> "CRITICAL";
+                    case ERROR -> "ERROR";
+                    default -> "WARNING";
+                };
+
+                timelineEvents.add(new DebugViewSnapshot.DebugTimelineEvent(
+                    event.frameNumber(),
+                    event.timestampMs(),
+                    severity,
+                    event.source(),
+                    event.name(),
+                    event.message()
+                ));
+            }
+        }
+
+        return timelineEvents;
     }
 
     // --- Summary mapping ---
@@ -180,32 +253,23 @@ public final class DebugViewSnapshotMapper {
         DebugHistory history = session.history();
         int historyDepth = history.size();
         int sourceCount = frameSnapshots.size();
-
-        // Count healthy sources (those that produced a snapshot this frame)
         int healthySources = sourceCount;
 
-        // Estimate frame time from timeline if available
         float frameTimeMs = 0f;
         float budgetPercent = 0f;
 
-        // Try to get frame time from engine snapshot
         DebugSnapshot engineSnap = frameSnapshots.get("worldengine");
         if (engineSnap != null) {
             Double ft = engineSnap.metrics().get("frameTimeMs");
             if (ft != null) {
                 frameTimeMs = ft.floatValue();
-                // Assume 60Hz target = 16.67ms budget
                 budgetPercent = (frameTimeMs / 16.667f) * 100f;
             }
         }
 
         return new DebugViewSnapshot.DebugSummaryView(
-            frameNumber,
-            frameTimeMs,
-            budgetPercent,
-            sourceCount,
-            historyDepth,
-            healthySources
+            frameNumber, frameTimeMs, budgetPercent,
+            sourceCount, historyDepth, healthySources
         );
     }
 
