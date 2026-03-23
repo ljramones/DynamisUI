@@ -17,12 +17,18 @@ public final class DebugSnapshotJson {
 
     private DebugSnapshotJson() {}
 
+    public static final int SCHEMA_VERSION = 1;
+
     /** Serialize a snapshot to a compact JSON string (single line). */
     public static String toJson(DebugViewSnapshot snapshot) {
         var sb = new StringBuilder(2048);
         sb.append('{');
 
+        // version
+        appendKey(sb, "v"); sb.append(SCHEMA_VERSION);
+
         // tick
+        sb.append(',');
         appendKey(sb, "tick"); sb.append(snapshot.tick());
 
         // summary
@@ -49,14 +55,23 @@ public final class DebugSnapshotJson {
         return sb.toString();
     }
 
-    /** Deserialize a JSON string to a DebugViewSnapshot. Minimal parser. */
+    /**
+     * Deserialize a JSON string to a DebugViewSnapshot.
+     * Full round-trip: all serialized fields are deserialized.
+     *
+     * @throws IllegalArgumentException if schema version is unsupported
+     */
     public static DebugViewSnapshot fromJson(String json) {
-        // Simple extraction — not a full JSON parser, but handles our known schema
+        int version = extractInt(json, "v");
+        if (version > SCHEMA_VERSION) {
+            throw new IllegalArgumentException(
+                "Unsupported schema version " + version + " (max supported: " + SCHEMA_VERSION + ")");
+        }
+
         long tick = extractLong(json, "tick");
         var summary = parseSummary(json);
         var alerts = parseAlerts(json);
         var timelineEvents = parseTimelineEvents(json);
-        // Categories are complex nested structures — simplified for replay
         var categories = parseCategories(json);
 
         return new DebugViewSnapshot(categories, alerts, summary, tick, timelineEvents);
@@ -248,29 +263,272 @@ public final class DebugSnapshotJson {
     }
 
     private static List<DebugViewSnapshot.DebugAlertView> parseAlerts(String json) {
-        // Simplified: return empty for now — alerts reconstruct from timeline events
-        return List.of();
+        var alerts = new java.util.ArrayList<DebugViewSnapshot.DebugAlertView>();
+        String search = "\"alerts\":[";
+        int idx = json.indexOf(search);
+        if (idx < 0) return alerts;
+        String arr = extractArray(json, idx + search.length() - 1);
+        for (String obj : splitArrayObjects(arr)) {
+            alerts.add(new DebugViewSnapshot.DebugAlertView(
+                extractString(obj, "ruleName"),
+                extractString(obj, "severity"),
+                extractString(obj, "message"),
+                "", ""
+            ));
+        }
+        return alerts;
     }
 
     private static List<DebugViewSnapshot.DebugTimelineEvent> parseTimelineEvents(String json) {
-        // Simplified: return empty for basic replay
-        return List.of();
+        var events = new java.util.ArrayList<DebugViewSnapshot.DebugTimelineEvent>();
+        String search = "\"timelineEvents\":[";
+        int idx = json.indexOf(search);
+        if (idx < 0) return events;
+        String arr = extractArray(json, idx + search.length() - 1);
+        for (String obj : splitArrayObjects(arr)) {
+            events.add(new DebugViewSnapshot.DebugTimelineEvent(
+                extractLong(obj, "frame"),
+                extractLong(obj, "ts"),
+                extractString(obj, "severity"),
+                extractString(obj, "source"),
+                extractString(obj, "name"),
+                extractString(obj, "message")
+            ));
+        }
+        return events;
     }
 
     private static Map<String, DebugViewSnapshot.DebugCategoryView> parseCategories(String json) {
-        // Simplified: return empty for basic replay
-        return Map.of();
+        var categories = new java.util.LinkedHashMap<String, DebugViewSnapshot.DebugCategoryView>();
+        String search = "\"categories\":";
+        int idx = json.indexOf(search);
+        if (idx < 0) return categories;
+        String catsObj = extractObject(json, idx + search.length());
+        if (catsObj.length() <= 2) return categories; // "{}"
+
+        // Parse each key-value pair in the categories object
+        int pos = 1; // skip opening '{'
+        while (pos < catsObj.length()) {
+            // Find key
+            int keyStart = catsObj.indexOf('"', pos);
+            if (keyStart < 0) break;
+            int keyEnd = catsObj.indexOf('"', keyStart + 1);
+            if (keyEnd < 0) break;
+            String key = catsObj.substring(keyStart + 1, keyEnd);
+
+            // Find value object
+            int colonPos = catsObj.indexOf(':', keyEnd);
+            if (colonPos < 0) break;
+            String valueObj = extractObject(catsObj, colonPos + 1);
+
+            categories.put(key, parseCategoryView(valueObj));
+            pos = colonPos + 1 + valueObj.length();
+            // Skip comma
+            while (pos < catsObj.length() && catsObj.charAt(pos) == ',') pos++;
+        }
+        return categories;
+    }
+
+    private static DebugViewSnapshot.DebugCategoryView parseCategoryView(String obj) {
+        String name = extractString(obj, "name");
+
+        // Parse sources: {"source1":{"key":"val",...},...}
+        var sources = new java.util.LinkedHashMap<String, Map<String, String>>();
+        String srcSearch = "\"sources\":";
+        int srcIdx = obj.indexOf(srcSearch);
+        if (srcIdx >= 0) {
+            String srcObj = extractObject(obj, srcIdx + srcSearch.length());
+            sources.putAll(parseNestedStringMaps(srcObj));
+        }
+
+        // Parse flags: {"flag1":"val",...}
+        var flags = new java.util.LinkedHashMap<String, String>();
+        String flagSearch = "\"flags\":";
+        int flagIdx = obj.indexOf(flagSearch);
+        if (flagIdx >= 0) {
+            String flagObj = extractObject(obj, flagIdx + flagSearch.length());
+            flags.putAll(parseStringMap(flagObj));
+        }
+
+        // Parse trends
+        var trends = new java.util.ArrayList<DebugMiniTrend>();
+        String trendSearch = "\"trends\":[";
+        int trendIdx = obj.indexOf(trendSearch);
+        if (trendIdx >= 0) {
+            String trendArr = extractArray(obj, trendIdx + trendSearch.length() - 1);
+            for (String tObj : splitArrayObjects(trendArr)) {
+                String metricName = extractString(tObj, "name");
+                double min = extractFloat(tObj, "min");
+                double max = extractFloat(tObj, "max");
+                var values = parseDoubleArray(tObj);
+                trends.add(new DebugMiniTrend(metricName, min, max, values));
+            }
+        }
+
+        return new DebugViewSnapshot.DebugCategoryView(name, sources, flags, trends);
+    }
+
+    // --- Parsing helpers ---
+
+    private static String extractString(String json, String key) {
+        String search = "\"" + key + "\":\"";
+        int idx = json.indexOf(search);
+        if (idx < 0) return "";
+        idx += search.length();
+        var sb = new StringBuilder();
+        for (int i = idx; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '\\' && i + 1 < json.length()) {
+                char next = json.charAt(i + 1);
+                switch (next) {
+                    case '"' -> { sb.append('"'); i++; }
+                    case '\\' -> { sb.append('\\'); i++; }
+                    case 'n' -> { sb.append('\n'); i++; }
+                    case 'r' -> { sb.append('\r'); i++; }
+                    case 't' -> { sb.append('\t'); i++; }
+                    default -> sb.append(c);
+                }
+            } else if (c == '"') {
+                break;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private static String extractObject(String json, int start) {
-        if (start >= json.length() || json.charAt(start) != '{') return "{}";
+        // Skip whitespace
+        while (start < json.length() && json.charAt(start) != '{') start++;
+        if (start >= json.length()) return "{}";
         int depth = 0;
+        boolean inString = false;
         int end = start;
         for (; end < json.length(); end++) {
             char c = json.charAt(end);
-            if (c == '{') depth++;
-            else if (c == '}') { depth--; if (depth == 0) { end++; break; } }
+            if (c == '"' && (end == 0 || json.charAt(end - 1) != '\\')) inString = !inString;
+            if (!inString) {
+                if (c == '{') depth++;
+                else if (c == '}') { depth--; if (depth == 0) { end++; break; } }
+            }
         }
         return json.substring(start, end);
+    }
+
+    private static String extractArray(String json, int start) {
+        while (start < json.length() && json.charAt(start) != '[') start++;
+        if (start >= json.length()) return "[]";
+        int depth = 0;
+        boolean inString = false;
+        int end = start;
+        for (; end < json.length(); end++) {
+            char c = json.charAt(end);
+            if (c == '"' && (end == 0 || json.charAt(end - 1) != '\\')) inString = !inString;
+            if (!inString) {
+                if (c == '[') depth++;
+                else if (c == ']') { depth--; if (depth == 0) { end++; break; } }
+            }
+        }
+        return json.substring(start, end);
+    }
+
+    /** Split a JSON array of objects into individual object strings. */
+    private static List<String> splitArrayObjects(String arr) {
+        var result = new java.util.ArrayList<String>();
+        int pos = 1; // skip '['
+        while (pos < arr.length()) {
+            while (pos < arr.length() && arr.charAt(pos) != '{') pos++;
+            if (pos >= arr.length()) break;
+            String obj = extractObject(arr, pos);
+            result.add(obj);
+            pos += obj.length();
+            while (pos < arr.length() && arr.charAt(pos) == ',') pos++;
+        }
+        return result;
+    }
+
+    private static Map<String, String> parseStringMap(String obj) {
+        var map = new java.util.LinkedHashMap<String, String>();
+        if (obj.length() <= 2) return map;
+        int pos = 1;
+        while (pos < obj.length()) {
+            int keyStart = obj.indexOf('"', pos);
+            if (keyStart < 0) break;
+            int keyEnd = obj.indexOf('"', keyStart + 1);
+            if (keyEnd < 0) break;
+            String key = obj.substring(keyStart + 1, keyEnd);
+            int colonPos = obj.indexOf(':', keyEnd);
+            if (colonPos < 0) break;
+            int valStart = obj.indexOf('"', colonPos);
+            if (valStart < 0) break;
+            String val = extractString(obj.substring(colonPos), key.isEmpty() ? "\"" : key);
+            // Simpler: re-extract from the substring
+            val = extractStringAt(obj, valStart);
+            map.put(key, val);
+            pos = valStart + val.length() + 2; // skip past value + quotes
+        }
+        return map;
+    }
+
+    private static String extractStringAt(String json, int quoteStart) {
+        var sb = new StringBuilder();
+        for (int i = quoteStart + 1; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '\\' && i + 1 < json.length()) {
+                sb.append(json.charAt(++i));
+            } else if (c == '"') {
+                break;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static Map<String, Map<String, String>> parseNestedStringMaps(String obj) {
+        var result = new java.util.LinkedHashMap<String, Map<String, String>>();
+        if (obj.length() <= 2) return result;
+        int pos = 1;
+        while (pos < obj.length()) {
+            int keyStart = obj.indexOf('"', pos);
+            if (keyStart < 0) break;
+            int keyEnd = obj.indexOf('"', keyStart + 1);
+            if (keyEnd < 0) break;
+            String key = obj.substring(keyStart + 1, keyEnd);
+            int colonPos = obj.indexOf(':', keyEnd);
+            if (colonPos < 0) break;
+            String valueObj = extractObject(obj, colonPos + 1);
+            result.put(key, parseStringMap(valueObj));
+            pos = colonPos + 1 + valueObj.length();
+            while (pos < obj.length() && obj.charAt(pos) == ',') pos++;
+        }
+        return result;
+    }
+
+    private static List<Double> parseDoubleArray(String obj) {
+        var values = new java.util.ArrayList<Double>();
+        String search = "\"values\":[";
+        int idx = obj.indexOf(search);
+        if (idx < 0) return values;
+        idx += search.length();
+        var sb = new StringBuilder();
+        for (int i = idx; i < obj.length(); i++) {
+            char c = obj.charAt(i);
+            if (c == ']') break;
+            if (c == ',') {
+                if (!sb.isEmpty()) {
+                    try { values.add(Double.parseDouble(sb.toString())); }
+                    catch (NumberFormatException ignored) {}
+                    sb.setLength(0);
+                }
+            } else if (c != ' ') {
+                sb.append(c);
+            }
+        }
+        if (!sb.isEmpty()) {
+            try { values.add(Double.parseDouble(sb.toString())); }
+            catch (NumberFormatException ignored) {}
+        }
+        return values;
     }
 }

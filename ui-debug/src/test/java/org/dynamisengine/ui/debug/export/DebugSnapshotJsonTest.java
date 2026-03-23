@@ -117,4 +117,87 @@ class DebugSnapshotJsonTest {
         String json = DebugSnapshotJson.toJson(snapshot);
         assertFalse(json.contains("\n"), "NDJSON output must be single line");
     }
+
+    @Test
+    void schemaVersionIncluded() {
+        String json = DebugSnapshotJson.toJson(DebugViewSnapshot.EMPTY);
+        assertTrue(json.contains("\"v\":" + DebugSnapshotJson.SCHEMA_VERSION));
+    }
+
+    @Test
+    void roundtripAlerts() {
+        var alerts = List.of(
+            new DebugViewSnapshot.DebugAlertView("engine.high", "WARNING", "frame > 8ms", "", ""),
+            new DebugViewSnapshot.DebugAlertView("physics.step", "ERROR", "step > 4ms", "", "")
+        );
+        var original = new DebugViewSnapshot(Map.of(), alerts,
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 100);
+        var parsed = DebugSnapshotJson.fromJson(DebugSnapshotJson.toJson(original));
+
+        assertEquals(2, parsed.alerts().size());
+        assertEquals("engine.high", parsed.alerts().get(0).ruleName());
+        assertEquals("WARNING", parsed.alerts().get(0).severity());
+        assertEquals("physics.step", parsed.alerts().get(1).ruleName());
+        assertEquals("ERROR", parsed.alerts().get(1).severity());
+    }
+
+    @Test
+    void roundtripTimelineEvents() {
+        var events = List.of(
+            new DebugViewSnapshot.DebugTimelineEvent(842, 1000, "WARNING", "physics", "step.high", "4.5ms")
+        );
+        var original = new DebugViewSnapshot(Map.of(), List.of(),
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 842, events);
+        var parsed = DebugSnapshotJson.fromJson(DebugSnapshotJson.toJson(original));
+
+        assertEquals(1, parsed.timelineEvents().size());
+        assertEquals(842, parsed.timelineEvents().getFirst().frameNumber());
+        assertEquals("WARNING", parsed.timelineEvents().getFirst().severity());
+        assertEquals("physics", parsed.timelineEvents().getFirst().source());
+        assertEquals("step.high", parsed.timelineEvents().getFirst().name());
+    }
+
+    @Test
+    void roundtripCategories() {
+        var trend = new DebugMiniTrend("engine.frameTimeMs", 3.0, 15.0, List.of(3.0, 8.0, 15.0));
+        var cat = new DebugViewSnapshot.DebugCategoryView("Engine",
+            Map.of("worldengine", Map.of("frameTimeMs", "14.2", "tickRate", "60")),
+            Map.of("healthy", "ACTIVE"),
+            List.of(trend));
+        var original = new DebugViewSnapshot(Map.of("engine", cat), List.of(),
+            DebugViewSnapshot.DebugSummaryView.EMPTY, 200);
+        var parsed = DebugSnapshotJson.fromJson(DebugSnapshotJson.toJson(original));
+
+        assertTrue(parsed.categories().containsKey("engine"));
+        var parsedCat = parsed.categories().get("engine");
+        assertEquals("Engine", parsedCat.categoryName());
+        assertTrue(parsedCat.sources().containsKey("worldengine"));
+        assertEquals("14.2", parsedCat.sources().get("worldengine").get("frameTimeMs"));
+        assertEquals("ACTIVE", parsedCat.flags().get("healthy"));
+        assertEquals(1, parsedCat.trends().size());
+        assertEquals("engine.frameTimeMs", parsedCat.trends().getFirst().metricName());
+        assertEquals(3, parsedCat.trends().getFirst().values().size());
+    }
+
+    @Test
+    void fullRoundtrip() {
+        var summary = new DebugViewSnapshot.DebugSummaryView(500, 12.5f, 75f, 5, 300, 4);
+        var alert = new DebugViewSnapshot.DebugAlertView("test.rule", "WARNING", "high", "", "");
+        var event = new DebugViewSnapshot.DebugTimelineEvent(498, 999, "ERROR", "engine", "crash", "bad");
+        var trend = new DebugMiniTrend("metric", 1.0, 10.0, List.of(1.0, 5.0, 10.0));
+        var cat = new DebugViewSnapshot.DebugCategoryView("Test",
+            Map.of("src", Map.of("val", "42")), Map.of("flag", "OK"), List.of(trend));
+
+        var original = new DebugViewSnapshot(
+            Map.of("test", cat), List.of(alert), summary, 500, List.of(event));
+        String json = DebugSnapshotJson.toJson(original);
+        var parsed = DebugSnapshotJson.fromJson(json);
+
+        assertEquals(500, parsed.tick());
+        assertEquals(12.5f, parsed.summary().frameTimeMs(), 0.1f);
+        assertEquals(1, parsed.alerts().size());
+        assertEquals(1, parsed.timelineEvents().size());
+        assertEquals(1, parsed.categories().size());
+        assertEquals(1, parsed.categories().get("test").trends().size());
+    }
 }
