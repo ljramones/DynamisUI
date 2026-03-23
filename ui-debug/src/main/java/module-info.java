@@ -4,10 +4,12 @@ module org.dynamisengine.ui.debug {
     requires org.dynamisengine.ui.core;
     requires org.dynamisengine.debug.api;
     requires org.dynamisengine.debug.core;
+    requires java.logging;
 
     exports org.dynamisengine.ui.debug;
     exports org.dynamisengine.ui.debug.model;
     exports org.dynamisengine.ui.debug.builder;
     exports org.dynamisengine.ui.debug.render;
     exports org.dynamisengine.ui.debug.runtime;
+    exports org.dynamisengine.ui.debug.export;
 }
