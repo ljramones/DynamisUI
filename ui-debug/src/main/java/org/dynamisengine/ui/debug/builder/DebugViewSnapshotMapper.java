@@ -95,6 +95,16 @@ public final class DebugViewSnapshotMapper {
         return buildSnapshot(frameNumber, frameSnapshots);
     }
 
+    /**
+     * Maps a specific historical frame by frame number.
+     * Returns {@link DebugViewSnapshot#EMPTY} if the frame is not retained in history.
+     */
+    public DebugViewSnapshot mapHistoricalFrame(long frameNumber) {
+        return session.history().frame(frameNumber)
+            .map(record -> buildSnapshot(record.frameNumber(), record.snapshots()))
+            .orElse(DebugViewSnapshot.EMPTY);
+    }
+
     private DebugViewSnapshot buildSnapshot(long frameNumber, Map<String, DebugSnapshot> frameSnapshots) {
         return new DebugViewSnapshot(
             mapCategories(frameSnapshots),

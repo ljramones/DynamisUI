@@ -81,4 +81,89 @@ class DebugOverlayStateTest {
         state.exitFocus();
         assertFalse(state.isFocusMode());
     }
+
+    // --- Replay tests ---
+
+    @Test
+    void initiallyNotInReplayMode() {
+        var state = new DebugOverlayState();
+        assertFalse(state.isReplayMode());
+    }
+
+    @Test
+    void toggleReplayFreezesAtCurrentFrame() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(500);
+        assertTrue(state.isReplayMode());
+        assertEquals(500, state.selectedFrameNumber());
+    }
+
+    @Test
+    void toggleReplayExitsCleanly() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(500);
+        state.toggleReplay(600); // exits replay
+        assertFalse(state.isReplayMode());
+    }
+
+    @Test
+    void stepBackwardClampsToOldest() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(100);
+        state.stepBackward(50, 80);
+        assertEquals(80, state.selectedFrameNumber()); // clamped to oldest
+    }
+
+    @Test
+    void stepForwardClampsToNewest() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(100);
+        state.stepForward(50, 120);
+        assertEquals(120, state.selectedFrameNumber()); // clamped
+    }
+
+    @Test
+    void stepBackwardNormal() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(100);
+        state.stepBackward(10, 0);
+        assertEquals(90, state.selectedFrameNumber());
+    }
+
+    @Test
+    void stepForwardNormal() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(100);
+        state.stepForward(5, 200);
+        assertEquals(105, state.selectedFrameNumber());
+    }
+
+    @Test
+    void jumpToOldestAndNewest() {
+        var state = new DebugOverlayState();
+        state.toggleReplay(100);
+        state.jumpToOldest(10);
+        assertEquals(10, state.selectedFrameNumber());
+        state.jumpToNewest(200);
+        assertEquals(200, state.selectedFrameNumber());
+    }
+
+    @Test
+    void modeLabelShowsLiveOrReplay() {
+        var state = new DebugOverlayState();
+        assertEquals("[ LIVE ]", state.modeLabel(100));
+        state.toggleReplay(80);
+        assertTrue(state.modeLabel(100).contains("REPLAY"));
+        assertTrue(state.modeLabel(100).contains("T=80"));
+    }
+
+    @Test
+    void focusAndReplayCoexist() {
+        var state = new DebugOverlayState();
+        state.toggleFocus();
+        state.toggleReplay(50);
+        assertTrue(state.isFocusMode());
+        assertTrue(state.isReplayMode());
+        assertEquals(50, state.selectedFrameNumber());
+    }
 }
