@@ -19,6 +19,16 @@ import java.util.List;
  */
 public interface DebugOverlayRenderer {
 
+    /**
+     * Render all panels with standard multi-column layout.
+     * This is the primary entry point for overlay rendering.
+     *
+     * @param panels  ordered panel list from DebugOverlayBuilder
+     * @param screenW framebuffer width
+     * @param screenH framebuffer height
+     */
+    void renderPanels(List<DebugOverlayPanel> panels, int screenW, int screenH);
+
     /** Begin a new overlay render pass. Called once per frame. */
     void beginOverlay();
 
