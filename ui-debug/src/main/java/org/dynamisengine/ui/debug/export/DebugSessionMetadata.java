@@ -66,12 +66,31 @@ public final class DebugSessionMetadata {
         windows.add(new InvestigationWindow(name, startFrame, endFrame));
     }
 
+    public void addWindow(String name, int startFrame, int endFrame, String note) {
+        windows.add(new InvestigationWindow(name, startFrame, endFrame, note));
+    }
+
     public void addBookmark(int frameIndex, String label) {
         bookmarks.add(new Bookmark(frameIndex, label));
     }
 
-    /** A bookmarked frame with optional label. */
-    public record Bookmark(int frameIndex, String label) {}
+    public void addBookmark(int frameIndex, String label, String note) {
+        bookmarks.add(new Bookmark(frameIndex, label, note));
+    }
+
+    /**
+     * A bookmarked frame with label and optional free-text note.
+     *
+     * @param frameIndex frame index (0-based)
+     * @param label      short label for display (e.g. "spike", "recovery")
+     * @param note       longer free-text note explaining why this frame matters
+     */
+    public record Bookmark(int frameIndex, String label, String note) {
+        /** Backwards-compatible constructor without note. */
+        public Bookmark(int frameIndex, String label) {
+            this(frameIndex, label, "");
+        }
+    }
 
     // --- Serialization ---
 
@@ -92,7 +111,8 @@ public final class DebugSessionMetadata {
             if (i > 0) sb.append(",");
             var bm = bookmarks.get(i);
             sb.append("\n    {\"frameIndex\": ").append(bm.frameIndex())
-              .append(", \"label\": \"").append(escape(bm.label())).append("\"}");
+              .append(", \"label\": \"").append(escape(bm.label()))
+              .append("\", \"note\": \"").append(escape(bm.note())).append("\"}");
         }
         if (!bookmarks.isEmpty()) sb.append("\n  ");
         sb.append("],\n");
@@ -103,7 +123,8 @@ public final class DebugSessionMetadata {
             var w = windows.get(i);
             sb.append("\n    {\"name\": \"").append(escape(w.name()))
               .append("\", \"startFrame\": ").append(w.startFrame())
-              .append(", \"endFrame\": ").append(w.endFrame()).append("}");
+              .append(", \"endFrame\": ").append(w.endFrame())
+              .append(", \"note\": \"").append(escape(w.note())).append("\"}");
         }
         if (!windows.isEmpty()) sb.append("\n  ");
         sb.append("]\n}");
@@ -136,7 +157,8 @@ public final class DebugSessionMetadata {
                     String obj = arr.substring(pos, end + 1);
                     int fi = extractInt(obj, "frameIndex");
                     String label = extractString(obj, "label");
-                    meta.addBookmark(fi, label);
+                    String note = extractString(obj, "note");
+                    meta.addBookmark(fi, label, note);
                     pos = end + 1;
                 }
             }
@@ -158,7 +180,8 @@ public final class DebugSessionMetadata {
                     String name = extractString(obj, "name");
                     int sf = extractInt(obj, "startFrame");
                     int ef = extractInt(obj, "endFrame");
-                    meta.addWindow(name, sf, ef);
+                    String note = extractString(obj, "note");
+                    meta.addWindow(name, sf, ef, note);
                     pos = end + 1;
                 }
             }
