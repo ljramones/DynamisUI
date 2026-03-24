@@ -29,6 +29,9 @@ public final class DebugSessionMetadata {
     // Bookmarks
     private final List<Bookmark> bookmarks = new ArrayList<>();
 
+    // Investigation windows (saved named ranges)
+    private final List<InvestigationWindow> windows = new ArrayList<>();
+
     // --- Accessors ---
 
     public String engineVersion() { return engineVersion; }
@@ -56,6 +59,12 @@ public final class DebugSessionMetadata {
     public void setDurationSeconds(float d) { this.durationSeconds = d; }
 
     public List<Bookmark> bookmarks() { return bookmarks; }
+
+    public List<InvestigationWindow> windows() { return windows; }
+
+    public void addWindow(String name, int startFrame, int endFrame) {
+        windows.add(new InvestigationWindow(name, startFrame, endFrame));
+    }
 
     public void addBookmark(int frameIndex, String label) {
         bookmarks.add(new Bookmark(frameIndex, label));
@@ -86,6 +95,17 @@ public final class DebugSessionMetadata {
               .append(", \"label\": \"").append(escape(bm.label())).append("\"}");
         }
         if (!bookmarks.isEmpty()) sb.append("\n  ");
+        sb.append("],\n");
+
+        sb.append("  \"windows\": [");
+        for (int i = 0; i < windows.size(); i++) {
+            if (i > 0) sb.append(",");
+            var w = windows.get(i);
+            sb.append("\n    {\"name\": \"").append(escape(w.name()))
+              .append("\", \"startFrame\": ").append(w.startFrame())
+              .append(", \"endFrame\": ").append(w.endFrame()).append("}");
+        }
+        if (!windows.isEmpty()) sb.append("\n  ");
         sb.append("]\n}");
         return sb.toString();
     }
@@ -121,6 +141,29 @@ public final class DebugSessionMetadata {
                 }
             }
         }
+
+        // Parse windows
+        int wStart = json.indexOf("\"windows\":");
+        if (wStart >= 0) {
+            String wSection = json.substring(wStart);
+            int arrStart = wSection.indexOf('[');
+            int arrEnd = wSection.indexOf(']');
+            if (arrStart >= 0 && arrEnd > arrStart) {
+                String arr = wSection.substring(arrStart, arrEnd + 1);
+                int pos = 0;
+                while ((pos = arr.indexOf("{", pos)) >= 0) {
+                    int end = arr.indexOf("}", pos);
+                    if (end < 0) break;
+                    String obj = arr.substring(pos, end + 1);
+                    String name = extractString(obj, "name");
+                    int sf = extractInt(obj, "startFrame");
+                    int ef = extractInt(obj, "endFrame");
+                    meta.addWindow(name, sf, ef);
+                    pos = end + 1;
+                }
+            }
+        }
+
         return meta;
     }
 
