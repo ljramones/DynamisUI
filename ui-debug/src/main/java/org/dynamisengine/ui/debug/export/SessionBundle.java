@@ -3,11 +3,15 @@ package org.dynamisengine.ui.debug.export;
 import org.dynamisengine.ui.debug.builder.DebugViewSnapshot;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -32,6 +36,8 @@ public final class SessionBundle {
     public static final String SESSION_FILE = "session.ndjson";
     public static final String META_FILE = "meta.json";
     public static final String COMPARE_REPORT_FILE = "compare-report.json";
+    public static final String MANIFEST_FILE = "manifest.json";
+    public static final int FORMAT_VERSION = 1;
 
     private final Path bundlePath;
     private List<DebugViewSnapshot> snapshots;
@@ -104,31 +110,43 @@ public final class SessionBundle {
     public static final String PACK_EXTENSION = ".dbgpack";
 
     /**
-     * Pack this bundle directory into a single portable file.
-     *
-     * @param outputPath path for the .dbgpack file
+     * Pack this bundle directory into a single portable .dbgpack file
+     * with a manifest containing checksums and format version.
      */
     public void pack(Path outputPath) throws IOException {
-        try (var zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
-            packFile(zos, SESSION_FILE);
-            packFile(zos, META_FILE);
-            if (hasCompareReport()) {
-                packFile(zos, COMPARE_REPORT_FILE);
+        // Compute checksums for all files
+        var checksums = new LinkedHashMap<String, String>();
+        var contents = new java.util.ArrayList<String>();
+        for (String file : List.of(SESSION_FILE, META_FILE, COMPARE_REPORT_FILE)) {
+            Path p = bundlePath.resolve(file);
+            if (Files.exists(p)) {
+                contents.add(file);
+                checksums.put(file, sha256(p));
             }
         }
-        LOG.info("Packed bundle: " + outputPath + " (" + Files.size(outputPath) / 1024 + " KB)");
-    }
 
-    private void packFile(ZipOutputStream zos, String filename) throws IOException {
-        Path file = bundlePath.resolve(filename);
-        if (!Files.exists(file)) return;
-        zos.putNextEntry(new ZipEntry(filename));
-        Files.copy(file, zos);
-        zos.closeEntry();
+        // Build manifest
+        String engineVersion = metadata != null ? metadata.engineVersion() : "unknown";
+        String manifest = buildManifest(engineVersion, contents, checksums);
+
+        try (var zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
+            // Write manifest first
+            zos.putNextEntry(new ZipEntry(MANIFEST_FILE));
+            zos.write(manifest.getBytes());
+            zos.closeEntry();
+
+            // Write data files
+            for (String file : contents) {
+                zos.putNextEntry(new ZipEntry(file));
+                Files.copy(bundlePath.resolve(file), zos);
+                zos.closeEntry();
+            }
+        }
+        LOG.info("Packed bundle: " + outputPath + " (" + Files.size(outputPath) / 1024 + " KB, " + contents.size() + " files)");
     }
 
     /**
-     * Unpack a .dbgpack file into a temporary directory and load it.
+     * Unpack a .dbgpack file, validate manifest, and load.
      */
     public static SessionBundle unpack(Path packFile) throws IOException {
         Path tempDir = Files.createTempDirectory("dbgpack-");
@@ -140,8 +158,100 @@ public final class SessionBundle {
                 zis.closeEntry();
             }
         }
-        LOG.info("Unpacked bundle to: " + tempDir);
+
+        // Validate manifest if present
+        Path manifestPath = tempDir.resolve(MANIFEST_FILE);
+        if (Files.exists(manifestPath)) {
+            validateManifest(tempDir, Files.readString(manifestPath));
+        } else {
+            LOG.warning("No manifest in bundle — skipping integrity check");
+        }
+
+        LOG.info("Unpacked bundle from: " + packFile);
         return load(tempDir);
+    }
+
+    // --- Manifest ---
+
+    private static String buildManifest(String engineVersion,
+                                         java.util.List<String> contents,
+                                         Map<String, String> checksums) {
+        var sb = new StringBuilder();
+        sb.append("{\n");
+        sb.append("  \"format\": \"dbgpack\",\n");
+        sb.append("  \"version\": ").append(FORMAT_VERSION).append(",\n");
+        sb.append("  \"engineVersion\": \"").append(engineVersion).append("\",\n");
+        sb.append("  \"createdAt\": \"").append(Instant.now()).append("\",\n");
+        sb.append("  \"contents\": [");
+        for (int i = 0; i < contents.size(); i++) {
+            if (i > 0) sb.append(", ");
+            sb.append("\"").append(contents.get(i)).append("\"");
+        }
+        sb.append("],\n");
+        sb.append("  \"checksums\": {\n");
+        int ci = 0;
+        for (var entry : checksums.entrySet()) {
+            sb.append("    \"").append(entry.getKey()).append("\": \"sha256:")
+              .append(entry.getValue()).append("\"");
+            if (++ci < checksums.size()) sb.append(",");
+            sb.append("\n");
+        }
+        sb.append("  }\n}");
+        return sb.toString();
+    }
+
+    private static void validateManifest(Path dir, String manifestJson) {
+        // Check version
+        if (manifestJson.contains("\"version\":")) {
+            int vIdx = manifestJson.indexOf("\"version\":") + 10;
+            while (vIdx < manifestJson.length() && !Character.isDigit(manifestJson.charAt(vIdx))) vIdx++;
+            int vEnd = vIdx;
+            while (vEnd < manifestJson.length() && Character.isDigit(manifestJson.charAt(vEnd))) vEnd++;
+            try {
+                int version = Integer.parseInt(manifestJson.substring(vIdx, vEnd));
+                if (version > FORMAT_VERSION) {
+                    LOG.warning("Bundle format version " + version + " is newer than supported " + FORMAT_VERSION);
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // Validate checksums
+        int csStart = manifestJson.indexOf("\"checksums\":");
+        if (csStart >= 0) {
+            String csSection = manifestJson.substring(csStart);
+            for (String file : List.of(SESSION_FILE, META_FILE, COMPARE_REPORT_FILE)) {
+                String key = "\"" + file + "\": \"sha256:";
+                int idx = csSection.indexOf(key);
+                if (idx < 0) continue;
+                idx += key.length();
+                int end = csSection.indexOf("\"", idx);
+                if (end < 0) continue;
+                String expected = csSection.substring(idx, end);
+
+                Path filePath = dir.resolve(file);
+                if (Files.exists(filePath)) {
+                    try {
+                        String actual = sha256(filePath);
+                        if (!expected.equals(actual)) {
+                            LOG.warning("Checksum mismatch for " + file + ": expected " +
+                                expected.substring(0, 12) + "... got " + actual.substring(0, 12) + "...");
+                        }
+                    } catch (IOException e) {
+                        LOG.warning("Cannot verify checksum for " + file + ": " + e.getMessage());
+                    }
+                }
+            }
+        }
+    }
+
+    private static String sha256(Path file) throws IOException {
+        try {
+            var digest = MessageDigest.getInstance("SHA-256");
+            digest.update(Files.readAllBytes(file));
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 
     /**
