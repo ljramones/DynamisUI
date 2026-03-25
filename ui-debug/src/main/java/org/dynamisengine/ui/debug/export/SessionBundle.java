@@ -3,10 +3,15 @@ package org.dynamisengine.ui.debug.export;
 import org.dynamisengine.ui.debug.builder.DebugViewSnapshot;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
  * A session bundle is a directory containing all artifacts of a debug session:
@@ -72,27 +77,6 @@ public final class SessionBundle {
         return bundle;
     }
 
-    /**
-     * Load from either a bundle directory or a loose .ndjson file.
-     * If given a file, looks for sibling .meta.json.
-     */
-    public static SessionBundle loadAuto(Path path) throws IOException {
-        if (Files.isDirectory(path)) {
-            return load(path);
-        }
-        // Loose file mode — wrap in a virtual bundle
-        var bundle = new SessionBundle(path.getParent());
-        bundle.snapshots = DebugSnapshotReplayLoader.load(path);
-
-        Path metaPath = Path.of(path.toString().replace(".ndjson", ".meta.json"));
-        if (Files.exists(metaPath)) {
-            bundle.metadata = DebugSessionMetadata.fromJson(Files.readString(metaPath));
-        } else {
-            bundle.metadata = new DebugSessionMetadata();
-        }
-        return bundle;
-    }
-
     // --- Save ---
 
     /** Save metadata (bookmarks + windows) back to the bundle. */
@@ -113,5 +97,73 @@ public final class SessionBundle {
 
     public boolean hasCompareReport() {
         return Files.exists(bundlePath.resolve(COMPARE_REPORT_FILE));
+    }
+
+    // --- Pack / Unpack (.dbgpack = zip) ---
+
+    public static final String PACK_EXTENSION = ".dbgpack";
+
+    /**
+     * Pack this bundle directory into a single portable file.
+     *
+     * @param outputPath path for the .dbgpack file
+     */
+    public void pack(Path outputPath) throws IOException {
+        try (var zos = new ZipOutputStream(Files.newOutputStream(outputPath))) {
+            packFile(zos, SESSION_FILE);
+            packFile(zos, META_FILE);
+            if (hasCompareReport()) {
+                packFile(zos, COMPARE_REPORT_FILE);
+            }
+        }
+        LOG.info("Packed bundle: " + outputPath + " (" + Files.size(outputPath) / 1024 + " KB)");
+    }
+
+    private void packFile(ZipOutputStream zos, String filename) throws IOException {
+        Path file = bundlePath.resolve(filename);
+        if (!Files.exists(file)) return;
+        zos.putNextEntry(new ZipEntry(filename));
+        Files.copy(file, zos);
+        zos.closeEntry();
+    }
+
+    /**
+     * Unpack a .dbgpack file into a temporary directory and load it.
+     */
+    public static SessionBundle unpack(Path packFile) throws IOException {
+        Path tempDir = Files.createTempDirectory("dbgpack-");
+        try (var zis = new ZipInputStream(Files.newInputStream(packFile))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                Path target = tempDir.resolve(entry.getName());
+                Files.copy(zis, target);
+                zis.closeEntry();
+            }
+        }
+        LOG.info("Unpacked bundle to: " + tempDir);
+        return load(tempDir);
+    }
+
+    /**
+     * Load from any path: .dbgpack file, bundle directory, or loose .ndjson.
+     */
+    public static SessionBundle loadAuto(Path path) throws IOException {
+        if (path.toString().endsWith(PACK_EXTENSION)) {
+            return unpack(path);
+        }
+        if (Files.isDirectory(path)) {
+            return load(path);
+        }
+        // Loose file mode
+        var bundle = new SessionBundle(path.getParent());
+        bundle.snapshots = DebugSnapshotReplayLoader.load(path);
+
+        Path metaPath = Path.of(path.toString().replace(".ndjson", ".meta.json"));
+        if (Files.exists(metaPath)) {
+            bundle.metadata = DebugSessionMetadata.fromJson(Files.readString(metaPath));
+        } else {
+            bundle.metadata = new DebugSessionMetadata();
+        }
+        return bundle;
     }
 }
