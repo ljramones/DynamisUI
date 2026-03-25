@@ -61,7 +61,7 @@ public final class DebugViewSnapshotMapper {
     private static final Map<String, List<String>> TREND_METRICS = Map.of(
         "worldengine", List.of("frameTimeMs", "budgetPercent"),
         "physics", List.of("stepTimeMs", "contacts"),
-        "ecs", List.of("entityCount"),
+        "ecs", List.of("entityCount", "ecs.frameTotalMs", "ecs.dominantSystemTimeMs"),
         "audio", List.of("dspBudget", "voices"),
         "gpu", List.of("backlog", "gpu.frameTimeMs", "gpu.shadowPassMs", "gpu.geometryPassMs"),
         "lightengine", List.of("drawCalls"),
