@@ -63,7 +63,7 @@ public final class DebugViewSnapshotMapper {
         "physics", List.of("stepTimeMs", "contacts"),
         "ecs", List.of("entityCount"),
         "audio", List.of("dspBudget", "voices"),
-        "gpu", List.of("backlog"),
+        "gpu", List.of("backlog", "gpu.frameTimeMs", "gpu.shadowPassMs", "gpu.geometryPassMs"),
         "lightengine", List.of("drawCalls"),
         "ai", List.of("budgetUsage"),
         "scripting", List.of("commitRate")
