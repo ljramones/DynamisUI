@@ -58,15 +58,34 @@ public final class DebugViewSnapshotMapper {
      * Key metrics to trend per source. Only metrics that actually exist in
      * history will produce trends — no synthetic data.
      */
-    private static final Map<String, List<String>> TREND_METRICS = Map.of(
-        "worldengine", List.of("frameTimeMs", "budgetPercent"),
-        "physics", List.of("stepTimeMs", "contacts"),
-        "ecs", List.of("entityCount", "ecs.frameTotalMs", "ecs.dominantSystemTimeMs"),
-        "audio", List.of("dspBudget", "voices"),
-        "gpu", List.of("backlog", "gpu.frameTimeMs", "gpu.shadowPassMs", "gpu.geometryPassMs"),
-        "lightengine", List.of("drawCalls"),
-        "ai", List.of("budgetUsage"),
-        "scripting", List.of("commitRate")
+    private static final Map<String, List<String>> TREND_METRICS = Map.ofEntries(
+        // World engine frame timing
+        Map.entry("worldengine", List.of("frameTimeMs", "budgetPercent")),
+        // Physics — step time + per-phase breakdown
+        Map.entry("physics", List.of("stepTimeMs", "contacts", "broadPhaseMs", "solverMs", "integrationMs")),
+        // ECS — frame total + dominant system
+        Map.entry("ecs", List.of("entityCount", "ecs.frameTotalMs", "ecs.dominantSystemTimeMs")),
+        // Audio — DSP budget + per-stage timing
+        Map.entry("audio", List.of("dspBudgetPercent", "physicalVoiceCount", "ringUnderruns",
+                "voiceRenderNanos", "busProcessNanos", "deviceWriteNanos")),
+        // GPU — frame + per-pass timing
+        Map.entry("gpu", List.of("backlog", "gpu.frameTimeMs", "gpu.shadowPassMs",
+                "gpu.geometryPassMs", "gpu.postProcessMs", "gpu.uiPassMs")),
+        // Rendering — per-pass draw calls + pipeline switches
+        Map.entry("lightengine", List.of("fps", "drawCalls", "shadowDrawCalls", "geometryDrawCalls",
+                "pipelineSwitches", "submittedObjects")),
+        // AI — budget + execution timing
+        Map.entry("ai", List.of("sim.tickElapsedMs", "budget.budgetUsedPercent",
+                "execution.frameTotalMs", "execution.hottestTaskMs",
+                "cognition.inferenceQueueDepth", "execution.timeoutInferences")),
+        // Scripting — tick timing + cache + errors
+        Map.entry("scripting", List.of("canon.tickDurationMs", "chronicler.executionMs",
+                "dsl.cacheHits", "dsl.cacheMisses", "evaluation.errorCount")),
+        // Threading — queue depths + dead letters
+        Map.entry("threading", List.of("threading.cognition.queueDepth",
+                "threading.gpuUpload.backlog", "threading.eventBus.deadLetters")),
+        // Content — cache + load timing
+        Map.entry("content", List.of("cacheHits", "cacheMisses", "failedResolutions", "lastLoadMs"))
     );
 
     private final DebugSession session;
